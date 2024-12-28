@@ -13,7 +13,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
 @Transactional
-@Commit //Commit어노테이션을 통해 실제 DB에 Commit이 되서 실제 데이터가 저장되는 지 확인할 수 있다.
+//@Commit //Commit어노테이션을 통해 실제 DB에 Commit이 되서 실제 데이터가 저장되는 지 확인할 수 있다.
+    //하지만 Commit을 하면 다른 테스트와 꼬일 수 있기 때문에 다음 테스트에도 데이터가 남아있어서 다음 테스트가 깨질 수 있다.
 class MemberTest {
     @Autowired
     EntityManager em;
