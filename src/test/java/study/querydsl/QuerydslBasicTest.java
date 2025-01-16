@@ -185,9 +185,70 @@ public class QuerydslBasicTest {
                 .selectFrom(member)
                 .fetchCount();
         //이렇게 카운트 쿼리로 바꿔서 가져오도록 할 수 있다.
+        //복잡한 쿼리에서는 성능때문에 토탈 및 리저트를 나누기 위해서 쿼리를 따로 날려야한다.
 
 
     }
+
+    //회원 정렬 순서
+//    1. 회원 나이 내림차순(desc)
+//    2.회원 이름 올림차순(asc)
+//    단 2에서 회원 이름이 없으면 마지막에 출력 (nulls last)
+    @Test
+    public void sort(){
+        em.persist(new Member(null,100));
+        em.persist(new Member("member5",100));
+        em.persist(new Member("member6",100));
+
+        List<Member> result = queryFactory
+                .selectFrom(member)
+                .where(member.age.eq(100))
+                .orderBy(member.age.desc(), member.username.asc().nullsLast())
+                .fetch();
+
+        Member member5 =result.get(0);
+        Member member6 =result.get(1);
+        Member membernull =result.get(2);
+
+        assertThat(member5.getUsername()).isEqualTo("member5");
+        assertThat(member6.getUsername()).isEqualTo("member6");
+        assertThat(membernull.getUsername()).isNull();
+
+    }
+
+    @Test
+    public void paging1(){
+        List<Member> result = queryFactory
+                .selectFrom(member)
+                .orderBy(member.username.desc())
+                .offset(1)
+                .limit(2)
+                .fetch();
+
+        assertThat(result.size()).isEqualTo(2);
+        Member member3 =result.get(0);
+        assertThat(member3.getUsername()).isEqualTo("member3");
+        //페이징에서도 2 offset 1로 들어가는 것을 볼 수 있다.
+
+    }
+
+    @Test
+    public void paging2(){
+        QueryResults<Member> queryResults = queryFactory
+                .selectFrom(member)
+                .orderBy(member.username.desc())
+                .offset(1)
+                .limit(2)
+                .fetchResults();
+     assertThat(queryResults.getTotal()).isEqualTo(4);
+     assertThat(queryResults.getLimit()).isEqualTo(2);
+        assertThat(queryResults.getOffset()).isEqualTo(1);
+        assertThat(queryResults.getResults().size()).isEqualTo(2);
+    }
+    //실무에서는 카운트 쿼리를 분리해야 될 경우도 있기 때문에
+    //페이징이 단순하지 않을 경우 페이징을 할 때 단순하게 할 수 있을 때 페이징 처리를 단순하게 해야 된다.
+    //count쿼리에 다 붙기 때문에 성능상 안좋을 수도 있어서 이 부분을 고려해서 작성해야된다.
+
 
 }
 
