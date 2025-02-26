@@ -296,6 +296,53 @@ public class QuerydslBasicTest {
     }//having 조건도 가능
     //item 가격으로 gt함수를 사용하여 해빙절도 가능하다.
 
+    /**
+     * 팀 A에 소속된 모든 회원(Join문법)
+     */
+    @Test
+    public void join(){
+        List<Member> result = queryFactory
+                .selectFrom(member)
+                .join(member.team, team)
+                //left/right/enner join 전부 가능
+                .where(team.name.eq("TeamA"))
+                .fetch();
+        assertThat(result)
+                .extracting("username")
+                .containsExactly("member1","member2");
+        //결국 JPQL에 의거하여 생성되는 것
+    }
+    //연관관계가 없어도 thetaJoin이 가능하다.
+    //연관관계가 없어도 조인이 가능하다.
+    @Test
+    public void theta_join(){
+        em.persist(new Member("TeamA"));
+        em.persist(new Member("TeamB"));
+        em.persist(new Member("TeamC"));
+
+        //사람이름이 TeamA와 TeamB일 경우
+        List<Member> result = queryFactory
+                .select(member)
+                .from(member, team) //
+                .where(member.username.eq(team.name))
+                .fetch();
+        //모든 회원과 팀을 가져와서 일일히 where절에서 필터링을 하는 것
+        //이걸 theta Join이라 한다.
+        assertThat(result)
+                .extracting("username")
+                .containsExactly("TeamA","TeamB");
+    }
+    //이런 theta조인은 1가지 제약이 있는데 외부 조인 불가능
+    //left/outter조인 같이 외부 조인 불가능
+    //조인 on을 사용하면 외부 조인까지도 가능하다.
+    //이런 select SQL을 보면 Cross Join까지 해준다.
+
+    //연관관계 없는 외부조인을 가져올 수 있는 방안
+    @Test
+    public void _join(){
+
+    }
+
 
 }
 
