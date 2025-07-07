@@ -337,11 +337,105 @@ public class QuerydslBasicTest {
     //조인 on을 사용하면 외부 조인까지도 가능하다.
     //이런 select SQL을 보면 Cross Join까지 해준다.
 
+    //하이버네이트 최신버전에서는 아래와 같은 방언이 생김
     //연관관계 없는 외부조인을 가져올 수 있는 방안
     @Test
     public void _join(){
 
     }
+
+
+    //조인 - on절
+    //1.조인 대상 필터링
+//    2.연관관계 없는 엔티티 외부조인
+//    2번이 많이 사용됨
+
+    /*
+    * 예) 회원과 팀을 조인하면서,팀이름이 teamA인 팀만 조인,회원은 모두 조인
+    * JPQL: select m,t from Member m left join m.team t on t.name= 'teamA'
+    * */
+    @Test
+    public void join_on_filtering(){
+        List<Tuple> result = queryFactory
+                .select(member, team)
+                .from(member)
+                .leftJoin(member.team, team).on(team.name.eq("TeamA"))
+//                만약 조인을 바꾸면 team이 없는 맴버는 다 빠지게 된다.
+//                팀B를 가진 맴버자체는 조회되지 않는다.
+                .fetch();
+
+        for(Tuple tuple:result){
+            System.out.println("tuple ="+tuple);
+        }
+        /*tuple =[Member{id=1, username='member1', age=10}, Team(id=1)]
+tuple =[Member{id=2, username='member2', age=20}, Team(id=1)]
+tuple =[Member{id=3, username='member3', age=30}, null]
+tuple =[Member{id=4, username='member4', age=40}, null]*/
+        /*팀A는 전부 가져왔지만
+        * 팀B는 전부 안가져오게 된다.
+        * 레프트 조인이기 때문에 맴버는 전부 가져오지만
+        * 팀은 일치되는 값만 가져오게 된다.
+        *  여기서 with 조건으로 쿼리가 나가고
+        * 이후 on절로 조인하여 맴버와 팀을 조인하여
+        * 엔드연산으로 팀의 이름으로 가져오는 쿼리를 만든다.*/
+    }
+    /*온 절을 활용하여 조인대상을 외부조인이 아닌 내부조인을 하면
+    * where절 필터링 데이터와 같다.
+    * where에서 팀a만 가져오지만
+    * 이너조인이면 온절로 거를 이유가 없다. 왜냐면
+    * 이너조인이면 결국 둘 다 있는 값만 가져오기 때문이다.
+    * 이런 케이스에는 그냥 where절로 가져오기만한다.
+    *
+    * on절 시 내부조인이면 where절로 해결하고 정말 외부조인이 필요할 경우
+    * 이 기능을 사용한다.
+    * */
+
+    /*2.연관관계 없는 엔티티 외부조인
+    * 회원의 이름이 팀 이름과 같은 대상을 외부 조인
+    * */
+
+    @Test
+    public void join_on_no_relation(){
+        em.persist(new Member("TeamA"));
+        em.persist(new Member("TeamB"));
+        em.persist(new Member("TeamC"));
+        /*보틍은 member.team으로 id매칭을 하는데
+        * 이걸 빼고 team이면 id를 매칭을 하지않기 떄문에 이름으로
+        * 매핑을 하게 된다.
+        * tuple = [Member{id=1, username='member1', age=10}, null]
+tuple = [Member{id=2, username='member2', age=20}, null]
+tuple = [Member{id=3, username='member3', age=30}, null]
+tuple = [Member{id=4, username='member4', age=40}, null]
+tuple = [Member{id=5, username='TeamA', age=0}, Team(id=1)]
+tuple = [Member{id=6, username='TeamB', age=0}, Team(id=2)]
+        tuple = [Member{id=7, username='TeamC', age=0}, null]
+        * 이렇게 가져와서 이름이 같은 경우 조인이 가능하다.
+        * */
+
+        List<Tuple> result = queryFactory
+                .select(member, team)
+                .from(member)
+                .leftJoin(team).on(member.username.eq(team.name))
+                //기존에는 member.team같이 들어갔지만
+                //이건 조건없이 값으로만 조인하려고 하면 위와 같이
+                .fetch();
+        //그냥 조인이면 데이터가 없어지고 일치하는 team만 남은다.
+
+        for(Tuple tuple:result){
+            System.out.println("tuple = " + tuple);
+        }
+        /*
+        * 맴버랑 팀을 조인하는데 with를 통해 맴버이름과 팀의 이름이 같다고 한다.
+        * 이때 on절에서 유저이름과 팀의 이름이 같다라는 매핑만 존재.
+        * 조인에 id가 있다면 id값 매핑이지만 그냥 team이라면
+        * 해당 조건의 이름값으로 조인을 한다.
+        * */
+        /*하이버네이트 5.1부터 on을 사용하여 서로 관게가 없는 필드로 외부조인하는
+        * 기능이 생김.
+        * 주의 문법을 잘봐야한다.
+        * 일반 조인과 다르게 엔티티 하나만 들어간다.*/
+    }
+
 
 
 }
