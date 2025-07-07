@@ -5,6 +5,8 @@ import com.querydsl.core.QueryResults;
 import com.querydsl.core.Tuple;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityManagerFactory;
+import jakarta.persistence.PersistenceUnit;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -434,7 +436,57 @@ tuple = [Member{id=6, username='TeamB', age=0}, Team(id=2)]
         * 기능이 생김.
         * 주의 문법을 잘봐야한다.
         * 일반 조인과 다르게 엔티티 하나만 들어간다.*/
+
+
     }
+
+    /*패치 조인
+     * 패치 조인은 SQL에서 제공하는 기능이 아닌 SQL조인을 활용하여
+     * 연관된 엔티티를 SQL한번에 조회하는 기능
+     * 주로 성능 최적화에서 자주 사용한다.
+     * */
+    @PersistenceUnit
+    EntityManagerFactory emf;
+
+    @Test
+    public void fetchJoinNo(){
+        em.flush();
+        em.clear();
+
+        Member findMember = queryFactory
+                .selectFrom(member)
+                .where(member.username.eq("member1"))
+                .fetchOne();
+
+        boolean loaded = emf.getPersistenceUnitUtil().isLoaded(findMember.getTeam());
+        //로딩된 엔티티인지 프록시 엔티티인 지 알려주는 유틸리티
+        assertThat(loaded).as("패치 조인 미적용").isFalse();
+
+
+    }
+    @Test
+    public void fetchJoinUse(){
+        em.flush();
+        em.clear();
+
+        Member findMember = queryFactory
+                .selectFrom(member)
+                .join(member.team,team).fetchJoin()
+                .where(member.username.eq("member1"))
+                .fetchOne();
+
+        boolean loaded = emf.getPersistenceUnitUtil().isLoaded(findMember.getTeam());
+        //로딩된 엔티티인지 프록시 엔티티인 지 알려주는 유틸리티
+        assertThat(loaded).as("패치 조인 미적용").isTrue();
+
+
+    }
+    /*
+    * 이렇게 퍼시스트 유틸을 통해 확인해보면 no일 경우
+    * 프록시 객체지만
+    * 패치 조인을 하게 되면 프록시 객체가 아닌
+    * 실제 팀 객체인 것을 알 수 있다.
+    * */
 
 
 
