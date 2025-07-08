@@ -3,6 +3,7 @@ package study.querydsl;
 
 import com.querydsl.core.QueryResults;
 import com.querydsl.core.Tuple;
+import com.querydsl.core.types.dsl.CaseBuilder;
 import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import jakarta.persistence.EntityManager;
@@ -616,6 +617,46 @@ tuple = [Member{id=6, username='TeamB', age=0}, Team(id=2)]
     * 몇백줄로 줄여서 훨씬 분량을 줄일 수 있을 것
     * 한방쿼리가 만능이 아니다.
     * */
+
+    /*case문*/
+    /*정확한 매치(when)
+    * 복합한 조건은 CaseBuilder를 사용*/
+    @Test
+    public void basicCase(){
+        List<String> result = queryFactory
+                .select(member.age
+                        .when(10).then("열살")
+                        .when(20).then("수무살")
+                        .otherwise("기타")
+                ).from(member)
+                .fetch();
+        for (String s:result){
+            System.out.println("s = " + s);
+        }
+    }
+
+    /*복잡한 조건 Case*/
+    @Test
+    public void complexCase(){
+        List<String> result = queryFactory
+                .select(new CaseBuilder()
+                        .when(member.age.between(0, 20)).then("0~20살")
+                        .when(member.age.between(21, 30)).then("21~30살")
+                        .otherwise("기타")
+
+                ).from(member)
+                .fetch();
+        for(String s:result){
+            System.out.println("s = " + s);
+        }
+        /*기본적인 jpqlCase문으로 필요할때 찾아보면 좋다.
+        * 하지만 이걸 굳이 써야되는가?
+        * 사실 조건처리는 DB에서 하지마라
+        * DB는 로우데이터를 필터링하고 그룹핑하고
+        * 필요하면 계산은 되지만 최소한의 필터링과
+        * 그룹핑으로 데이터를 줄이고
+        * 전환하고 바꾸고 하는건 DB가 아닌 app에서 해라.*/
+    }
 
 
 
