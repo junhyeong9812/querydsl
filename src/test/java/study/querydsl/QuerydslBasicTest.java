@@ -3,6 +3,7 @@ package study.querydsl;
 
 import com.querydsl.core.QueryResults;
 import com.querydsl.core.Tuple;
+import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
@@ -20,6 +21,7 @@ import study.querydsl.entity.Team;
 
 import java.util.List;
 
+import static com.querydsl.jpa.JPAExpressions.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static study.querydsl.entity.QMember.member;
 import static study.querydsl.entity.QTeam.team;
@@ -486,6 +488,133 @@ tuple = [Member{id=6, username='TeamB', age=0}, Team(id=2)]
     * 프록시 객체지만
     * 패치 조인을 하게 되면 프록시 객체가 아닌
     * 실제 팀 객체인 것을 알 수 있다.
+    * */
+
+    /*서브쿼리
+    * QueryDsl에서는 자바 코드라 쉽지 않다.
+    * com.querydsl.jpa.JPAExpressions 사용
+    * */
+    /*
+    나이가 가장 많은 회원을 조회
+    * */
+    @Test
+    public void subQuery(){
+        QMember memberSub = new QMember("memberSub");
+        //서로 같은 테이블 두개를 쓸때는 서브쿼리를 만들어야함
+        List<Member> result = queryFactory
+                .selectFrom(member)
+                .where(member.age.eq(
+                        select(memberSub.age.max())
+                                .from(memberSub)
+                ))
+                .fetch();
+        assertThat(result).extracting("age")
+                .containsExactly(40);
+        /*where절에서 서브쿼리가 들어왔는데
+        * 맴버테이블에서 맴버의 나이가 가장 많은 사람을 조회하고
+        * 해당 사용자가 조건이된다.
+        * 만약 서브 Q타입을 안만들면 충돌이 일어난다.
+        * */
+    }
+    /*나이가 평균 이상인 회원*/
+    @Test
+    public void subQueryGoe() {
+        QMember memberSub = new QMember("memberSub");
+        //서로 같은 테이블 두개를 쓸때는 서브쿼리를 만들어야함
+        List<Member> result = queryFactory
+                .selectFrom(member)
+                .where(member.age.goe(
+                        select(memberSub.age.avg())
+                                .from(memberSub)
+                ))
+                .fetch();
+        assertThat(result).extracting("age")
+                .containsExactly(30,40);
+    }
+    /*
+    * In절 사용 */
+    @Test
+    public void subQueryIn(){
+        QMember memberSub=new QMember("memberSub");
+        List<Member> result = queryFactory
+                .selectFrom(member)
+                .where(member.age.in(
+                        select(memberSub.age)
+                                .from(memberSub)
+                                .where(memberSub.age.gt(10))
+                ))
+                .fetch();
+        assertThat(result)
+                .extracting("age")
+                .containsExactly(20,30,40);
+    }
+
+    /*select절에도 서브쿼리가 된다.
+    * */
+    @Test
+    public void selectSubquery(){
+
+        QMember memberSub=new QMember("memberSub");
+        List<Tuple> result =queryFactory
+                .select(member.username,
+                        select(memberSub.age.avg())
+                                .from(memberSub)
+                        ).from(member)
+                .fetch();
+        for(Tuple tuple:result){
+            System.out.println("tuple = " + tuple);
+        }
+
+    }
+    /*JPAExpression도 static형태로 사용 가능하다.
+    * 내부에서 사용하기 때문에 깔끔하게 정리된다.*/
+
+    /*
+    * from절의 서브쿼리 한계
+    * JPA JPQL 서브쿼리의 한계점으로 from절의  서브커리(인라인뷰)는 지원하지 않는다.
+    * 당연히 Querydsl도 지원하지 않는다.
+    * 하이버네이트 구현체를사용하면 select절의 서브쿼리는 지원한다.
+    * Querydls도 하이버네이트 구현체를 사용하면select절의 서브쿼리를 지원한다.
+    *
+    * from절의 서브쿼리 해결방안
+    * 1.서브쿼리를 join으로 변경한다.(가능한 상황도 있고 불가능한 상황도 있다.)
+    * 2. 애플리케이션에서 쿼리를 2번 분리해서 실행한다.
+    * 3. nativeSQL을 사용한다.
+    *
+    * 애플리케이션에서 쿼리를 2번 분리해서 실행하는 방법이 존재.
+    * 안되면 네이티브 쿼리 사용
+    *
+    * from절에 서브쿼리를 쓰는 이유는
+    * 안좋은 이유가 많다.
+    * DB라는 것은 쿼리에서 기능을 많이 제공하니깐
+    * sql에 화면과 관계된 쿼리를 복잡하게 짜면
+    * from절 안에 from절 구조가 나오는 경우가 있으며
+    * SQL은 데이터를 가져오는 것과
+    * 애플리케이션에서 로직을 태워서 화면에서 데이터 포맷은
+    * 다 화면에서 해야된다.
+    * 그래야 DB의 쿼리 재활용이 되는데.
+    * from절 from절에 넣어야되는 화면에 맞추는 방식은
+    * 현대적인 app에서 view는 프리젠테이션에서 풀어야되는데
+    * 쿼리에서 다 풀려고 하니깐 쿼리가 복잡해지고
+    * 서브쿼리가 들어가야되는 상황이 자주 나온다.
+    * 하지만 DB는 데이터 필터링 및 그룹핑을 하고
+    * 프리젠테이션 로직이나 서비스로직에서 사용하는게 좋다.
+    * 데이터를 최소화해서 가져오는 방향으로 집중하는게 좋다.
+    * 한방 쿼리는 정말 잘되는가?
+    * -->실시간 트래픽이 중요하면 쿼리1번이 정말 아깝다.
+    * 하지만 화면에 맞춘 캐시를 발라서 사용하는데
+    * 어드민은 좀 느려도 되는데 여기서 쿼리한방에 짜려고
+    * 하면 오히려 분리하다.
+    * 이럴꺼면 쿼리를 두번 세번 나눠서 사용하는게 좋다.
+    * 로직을 풀어낼 수 있는 앱단보다 DB단으로 가면
+    * 더 안좋다.
+    * SQL antiPetterns
+    * 개발자가 알아야할 25가지 SQL패턴에 대해서
+    * 여기 내용 중
+    * 큰 쿼리를 사용했었는데
+    * 이 책에서 복잡한 쿼리는 나눠서 호출하면
+    * 몇백줄로 줄여서 훨씬 분량을 줄일 수 있을 것
+    * 한방쿼리가 만능이 아니다.
     * */
 
 
