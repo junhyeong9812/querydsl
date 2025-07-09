@@ -4,6 +4,7 @@ package study.querydsl;
 import com.querydsl.core.QueryResults;
 import com.querydsl.core.Tuple;
 import com.querydsl.core.types.dsl.CaseBuilder;
+import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import jakarta.persistence.EntityManager;
@@ -658,7 +659,90 @@ tuple = [Member{id=6, username='TeamB', age=0}, Team(id=2)]
         * 전환하고 바꾸고 하는건 DB가 아닌 app에서 해라.*/
     }
 
+    /*상수,문자 더하기
+    * */
+    @Test
+    public void constant(){
+        List<Tuple> result = queryFactory
+                .select(member.username, Expressions.constant("A"))
+                .from(member)
+                .fetch();
+        for (Tuple tuple:result){
+            System.out.println("tuple = " + tuple);
+        }
+    }
+    //jpql에는 문자가 안나오지만
+    //실제 값에서는 뒤에 ,A로 나온다.
 
+    /*문자더하기
+    * */
+    @Test
+    public void concat(){
+        //{username}_{age}로
+        //하지만 나이는 타입이 문자열이 아니라 치환이 필요
+        List<String> result = queryFactory
+                .select(member.username.concat("_").concat(member.age.stringValue()))
+                .from(member)
+                .where(member.username.eq("member1"))
+                .fetch();
+        for(String s: result){
+            System.out.println("s = " + s);
+        }
+    }
+    /*member1_10으로 나오고
+    * concat으로 jpql도 나오지만 age는 as char로
+    * 케스팅한 것도 확인 할 수 있다.*/
+    /*.stringValue를 쓸 경우가 생각보다 많다.
+    * */
+    //enum처리 시 많이 사용하는 stringValue
+
+    /*중급 문법
+    * 프로젝션(select 대상 지정)
+    * 프로젝션 대상이 1개일 경우
+    * 반환타입을 단일 타입으로 명확하게 지정
+    */
+    @Test
+    public void simpleProjection(){
+        List<String> result = queryFactory
+                .select(member.username)
+                .from(member)
+                .fetch();
+        for (String s:result) {
+            System.out.println("result = " + result);
+        }
+        //당연히 유저이름이 나온다.
+        //객체 타입도 프로젝션 대상이 된다.
+    }
+
+    /*
+
+    * 프로젝션 둘 이상이면 튜플이나 dto로 조회해야된다.
+    * 튜플은 여러개 조회할 때 준비해놓은 타입
+    * 보통 한번에 여러개 담아서 꺼낼 수 있는게 튜플이다.
+    * */
+    @Test
+    public void tupleProjection(){
+        List<Tuple> result = queryFactory
+                .select(member.username, member.age)
+                .from(member)
+                .fetch();
+        for(Tuple tuple:result){
+            String username = tuple.get(member.username);
+            Integer age = tuple.get(member.age);
+            System.out.println("username = " + username);
+            System.out.println("age = " + age);
+        }
+    }
+    /*이렇게 하면 당연히 유저이름과 나이가 원하는 데이터 컬럼을 찍어서
+    * 가져온다.
+    * 이런걸 프로젝션이라 한다.
+    * 튜플은 com.querydsl.query 패키지에 있다.
+    * 이 튜플은 리포를 넘어 서비스랑 컨트롤러까지 넘어가면 좋은 설계가 아니다.
+    * jdbc를 쓸때 반환해주는 것 dao나 리포에서 쓰고
+    * 의존을 없도록 설계하는게 좋다. 그래야 하부 기술을 변경해도
+    * 앞단 변경을 할 필요가 없다.
+    * 스프링은 보통 이렇게 설계한다.(밖에서 던질때는 dto로 변환)
+    *  */
 
 }
 
