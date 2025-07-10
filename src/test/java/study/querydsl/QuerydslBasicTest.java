@@ -3,6 +3,8 @@ package study.querydsl;
 
 import com.querydsl.core.QueryResults;
 import com.querydsl.core.Tuple;
+import com.querydsl.core.types.ExpressionUtils;
+import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.CaseBuilder;
 import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.jpa.JPAExpressions;
@@ -16,6 +18,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
+import study.querydsl.dto.MemberDto;
+import study.querydsl.dto.UserDto;
 import study.querydsl.entity.Member;
 import study.querydsl.entity.QMember;
 import study.querydsl.entity.QTeam;
@@ -743,6 +747,172 @@ tuple = [Member{id=6, username='TeamB', age=0}, Team(id=2)]
     * 앞단 변경을 할 필요가 없다.
     * 스프링은 보통 이렇게 설계한다.(밖에서 던질때는 dto로 변환)
     *  */
+
+    /*프로젝션과 결과반환dto
+    * 쿼리할 때 dto에 필요한 값만 가져오고 싶을경우
+    * 해당 값만 프로젝션하여 가져오고 싶은 경우
+    * 결국 dto는 하나의 통이 되는 것*/
+    @Test
+    public void findDtoByJPQL(){
+        List<MemberDto> result = em.createQuery("select new study.querydsl.dto.MemberDto(m.username,m.age) " +
+                        "from Member m", MemberDto.class)
+                .getResultList();
+        //이처럼 직접 지정하여 프로젝션을 하는 방법을
+        //뉴 오퍼레이션이라 부른다.
+        for (MemberDto memberDto:result){
+            System.out.println("result = " + memberDto);
+        }
+        /*여기서 쿼리를 보면 username과 age 두개만
+        * 조회하는 것을 확인할 수 있다.*/
+    }
+
+    /*이처럼 jpql이 나온다. 하지만 이건 코드를 짤 때 패키지명을 다 적어야하는
+    * 단점이 존재한다.
+    * 순수JPA에서 dto를 조회할때 new명령어를 사용해야되고
+    * 생성자 방식만 지원한다.
+    * setter나 바로 필드에 주입은 안된다.*/
+
+    /*하지만 queryDsl은 이걸 극복한
+    * 프로퍼티 접근,필드 직접 접근, 생성자 사용*/
+    @Test
+    public void findDtoBySetter(){
+        List<MemberDto> result = queryFactory
+                .select(Projections.bean(MemberDto.class,
+                        member.username,
+                        member.age))
+                .from(member)
+                .fetch();
+        for(MemberDto memberDto:result){
+            System.out.println("memberDto = " + memberDto);
+        }
+    }
+    //기본 생성자가 없는 경우 @Data는
+    //getter/setter등 다 만들어준다. 하지만 기본 생성자를 안만들어준다.
+    //기본 생성자를 호출해서 만드는데 없으면 오류가 나온다.
+    /*이게 프로퍼티 생성자
+    * */
+
+    /*필드 생성자 방법*/
+    @Test
+    public void findDtoByField(){
+        List<MemberDto> result = queryFactory
+                .select(Projections.bean(MemberDto.class,
+                        member.username,
+                        member.age))
+                .from(member)
+                .fetch();
+        for(MemberDto memberDto:result){
+            System.out.println("memberDto = " + memberDto);
+        }
+    }
+    /*getter setter가 필요 없다.
+    * 필드에 바로 값을 넣는다.
+    * private인데 값이 들어간다.
+    * 자바 리플랙션이나 다른 방법들이 존재*/
+
+    /*생성자 접근 방법*/
+    @Test
+    public void findDtoByConstructor(){
+        List<MemberDto> result = queryFactory
+                .select(Projections.constructor(MemberDto.class,
+                        member.username,
+                        member.age))
+                .from(member)
+                .fetch();
+        for(MemberDto memberDto:result){
+            System.out.println("memberDto = " + memberDto);
+        }
+    }
+    /*생성자 접근 방법인 constructor는
+    * 엔티티와 dto의 필드 타입이 같아야한다.*/
+
+    /*별칭이 다른 경우가 존재하는데
+    * MemberDto가 아닌 userDto로 한다면?*/
+    @Test
+    public void findUserDto(){
+        List<UserDto> result = queryFactory
+                .select(Projections.bean(UserDto.class,
+                        member.username.as("name"),
+                        member.age))
+                .from(member)
+                .fetch();
+        //그냥 필드명이 맞아야 들어간다.
+        //setter는 프로퍼티 명이 맞아야된다.
+        for(UserDto userDto:result){
+            System.out.println("memberDto = " + userDto);
+        }
+        /*매칭되는 값이 없어서 무시가 되는 상황
+        * 이름은 null로 들어간다. 왜냐면 매칭이 안되서
+        * userDto의 name이라는 필드이기 때문에
+        * 별칭으로 이름을 매핑시켜줘야한다.
+        * .as("name")
+        * 로 별칭값으로 변경해주면 된다.*/
+    }
+
+    /*이름이 없을때*/
+    @Test
+    public void findUserDtoNoAgeName(){
+        QMember memberSub=new QMember("memberSub");
+        List<UserDto> result = queryFactory
+                .select(Projections.bean(UserDto.class,
+                        member.username.as("name"),
+                        //이건 이름으로 가능
+                        ExpressionUtils.as(JPAExpressions
+                                .select(memberSub.age.max())
+                                .from(memberSub),"age")
+                        //age에서 서브쿼리를 사용하면? 회원나이의 max값으로
+                        //오른쪽은 전부 최대나이로 나오게 하고 싶을 경우
+                        //이렇게 필드에 익스프레션유틸로 두번째 마라미터로 감싸면
+                        //별칭을 줄 수 있다.
+                        //이렇게 서브쿼리를 줄 수 있다.
+                ))
+                .from(member)
+                .fetch();
+
+        for(UserDto userDto:result){
+            System.out.println("memberDto = " + userDto);
+        }
+        /*매칭되는 값이 없어서 무시가 되는 상황
+         * 이름은 null로 들어간다. 왜냐면 매칭이 안되서
+         * userDto의 name이라는 필드이기 때문에
+         * 별칭으로 이름을 매핑시켜줘야한다.
+         * .as("name")
+         * 로 별칭값으로 변경해주면 된다.*/
+        /*프로퍼티나 필드 접근 생성 방식에서 이름이 다를 때 해결방안
+        * ExprssionUtis.as기법으로 사용해도 된다.
+        * 하지만 이렇게 하면 코드 자체가 지저분해진다. 그래서
+        * .as를 통해 별칭을 주는게 더 좋다.
+        * 서브쿼리는 방법이 없어서 이렇게 익스프레션유틸로 감싸야된다.
+        * 생성자는 타입을 보고 들어가게 된다.*/
+
+
+    }
+    /*생성자 접근 방법*/
+    @Test
+    public void findDtoByUserDtoConstructor(){
+        List<UserDto> result = queryFactory
+                .select(Projections.constructor(UserDto.class,
+                        member.username,
+                        member.age))
+                .from(member)
+                .fetch();
+        for(UserDto memberDto:result){
+            System.out.println("memberDto = " + memberDto);
+        }
+    }
+    /*이렇게 변경하면 바로 dto에 값이 들어가는데
+    * 이때도 dto에 생성자가 없으면 오류가 나온다.
+    * 여기 이상의 복잡도를 가진 프로젝션은 없다.
+    *  */
+    
+    /*
+    * setter 방식
+    * 필드 인젝션 방식
+    * 생성자 방식
+    * 이 3가지가 대표적인 방법이며
+    * setter나 필드 인젝션은 이름이 매칭되야하기 떄문에 별칭을
+    * 활용해야된다.*/
+    
 
 }
 
