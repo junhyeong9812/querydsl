@@ -19,6 +19,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 import study.querydsl.dto.MemberDto;
+import study.querydsl.dto.QMemberDto;
 import study.querydsl.dto.UserDto;
 import study.querydsl.entity.Member;
 import study.querydsl.entity.QMember;
@@ -912,7 +913,62 @@ tuple = [Member{id=6, username='TeamB', age=0}, Team(id=2)]
     * 이 3가지가 대표적인 방법이며
     * setter나 필드 인젝션은 이름이 매칭되야하기 떄문에 별칭을
     * 활용해야된다.*/
-    
+
+    /*프로젝션과 결과반환
+    * @QueryProjection
+    * 이걸 엔티티의 생성자에 사용하면
+    * @QueryProjection이 적용된 dto의 Q파일이 생성
+    * 여기에는 퍼블릭 메서드가 존재.
+    */
+    @Test
+    public void findDtoByQueryProjection(){
+        List<MemberDto> result = queryFactory
+                .select(new QMemberDto(member.username, member.age))
+                //이렇게 하면 Q쿼리에 미리 명시해주기 때문에
+                //IDE에서 필요한 객체 값을 다 알려준다.
+                //미리 Expression이 적용되어있다.
+                .from(member)
+                .fetch();
+        for (MemberDto memberDto : result){
+            System.out.println("memberDto = " + memberDto);
+        }
+    }
+    /*이때 cconstructor는
+    * 없는 값을 넣어도 컴파일 오류가 나오지 않는다.
+    * 실제 런타임에 오류가 나오게 된다.
+    * 그래서 실제 유저가 이 코드를 실행하는 순간
+    * 오류가 생긴다. 위험한 런타임오류가 생긴다.
+    * 하지만 이렇게 미리 QeuryProjection을 해놓으면
+    * 미리 생성자를 만들어 데이터 안정성을 맞춰놨기 떄문아다.
+    * 그래서 다른 값이 들어오면 에러가 나도록 설계된다.
+    * 특히 커맨드p를 통해 필요한 객체가 어떤건지 확인도 가능
+    * 실제 생성자 호출까지 보장을 해주기 때문에 매우 좋은장점들이 존재.
+    * 하지만 이때 고민을 하게 되는 부분은
+    * 실무에서 compile시점 타입도 체크가 되서
+    * 상당히 안정적이 된다.
+    * constructor는 코드가 길어지면 컴파일 시에는 확인이 안되지만
+    * 프로젝션은 다 나오기 떄문에 편리하다.
+    * 하지만 단점으로는 Q파일이 생성되어야 되고
+    * dto에 쿼리프로젝션을 추가해야된다.
+    *
+    * 그리고 아키텍처면에서 dto는 쿼리dsl을 전혀 몰랐지만
+    * 프로젝션이 들어오면 querydsl에 대한 의존성을 가지게 된다.
+    * 모듈화가 어려워진다는 점이 존재한다.
+    * 그리고 dto의 경우 이걸 서비스에서 쓰고 컨트롤러나 api로 반환하기도
+    * 하는데 여러 레이어에서 사용하는데
+    * 아키텍처 설계에 따라서
+    * 리포에서 조회하면 서비스에서 쓰고 controller에서 쓰지만
+    * 이때 이 흐름안에 프로젝션이 들어가게 되서 의존적 설계가 된다.
+    * 그래서 아키텍처적으로 dto를 깔끔하게 가져가고 싶은 경우 힘들다.*/
+
+    /*projection은 하나일 경우 바로 정의
+    * 2개일 경우 튜플로 정의(튜플은 리포에서만 사용
+    * dto로 바로 조회 시 순수 JPA에서는
+    * 뉴오퍼레이션,
+    * querydsl 프로퍼티 빌드 생성자(쿼리 프로젝션,constructor)
+    * distinct는 .distinct를 셀렉트 절 뒤에 넣으면 된다.*/
+
+
 
 }
 
