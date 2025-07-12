@@ -1,6 +1,7 @@
 package study.querydsl;
 
 
+import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.QueryResults;
 import com.querydsl.core.Tuple;
 import com.querydsl.core.types.ExpressionUtils;
@@ -967,6 +968,45 @@ tuple = [Member{id=6, username='TeamB', age=0}, Team(id=2)]
     * 뉴오퍼레이션,
     * querydsl 프로퍼티 빌드 생성자(쿼리 프로젝션,constructor)
     * distinct는 .distinct를 셀렉트 절 뒤에 넣으면 된다.*/
+
+
+    /*동적 쿼리
+    * 1.BooleanBuilder
+    * 2.Where 다중 파라미터 사용
+    * */
+    /*BooleanBuilder
+    * */
+    @Test
+    public void dynamicQuery_BooleanBuilder(){
+        String usernameParam="member1";
+        Integer ageParam =10;
+        //위가 검색 파라미터
+        /*여기서 파라미터가 변경되면 빌드 where절이 변경되는 걸 볼 수 있다.*/
+        List<Member> result=searchMember1(usernameParam,ageParam);
+        assertThat(result.size()).isEqualTo(1);
+    }
+
+    private List<Member> searchMember1(String usernameCond, Integer ageCond) {
+        BooleanBuilder builder = new BooleanBuilder();
+//        BooleanBuilder builder = new BooleanBuilder(member.username.eq(usernameCond));
+        /*이처럼 초기값도 설정 할 수 있으며
+        * 이렇게 하기 위해서 앞단에서 방어 코드가 필요하고
+        * .and/.or로 조건도 정할 수 있다.*/
+
+        if(usernameCond !=null){
+            builder.and(member.username.eq(usernameCond));
+            //유저이름이 uull이 아니면 맴버이름과 이퀄 조건
+        }
+        if(ageCond != null){
+            builder.and(member.age.eq(ageCond));
+        }
+        return queryFactory
+                .selectFrom(member)
+                .where(builder)
+                .fetch();
+    }
+    //이와 같이 서치맴버 함수를 통해 사용자 유무에 따라 쿼리를 생성하도록 할 수 있다.
+
 
 
 
