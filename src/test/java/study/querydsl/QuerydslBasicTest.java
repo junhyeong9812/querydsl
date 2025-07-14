@@ -1008,6 +1008,94 @@ tuple = [Member{id=6, username='TeamB', age=0}, Team(id=2)]
     //이와 같이 서치맴버 함수를 통해 사용자 유무에 따라 쿼리를 생성하도록 할 수 있다.
 
 
+    /*수정 삭제 배치 쿼리
+    * 쿼리 한번으로 대량 데이터 수정
+    * 엔티티의 값만 바꾸면
+    * 더티체킹(변경감지)
+    * 업데이트 쿼리로 나가게 된다.
+    * 이러한 변경 감지는 건마다 일어나서
+    * 쿼리가 많이 나간다.
+    * 하지만 이걸 한쿼리로 처리해야된다면?
+    * 이걸 JPA에선 벌크연산이라 한다.*/
+    @Test
+    //@Commit //실제저장을 위해서 커밋이 필요
+    public void bulkUpdate(){
+        long count = queryFactory
+                .update(member)
+                .set(member.username, "비회원")
+                .where(member.age.lt(28))
+                .execute();
+        //count에는 바꾼 갯수가 나온다.
+        //member1/member2가 비회원으로 바꿔야된다.
+        //member3/member4는 유지가 되어야 한다.
+        /*이런 벌크 연산의 문제는
+        * JPA는 기본적으로 영속성 컨텍스트에 엔티티가
+        * 다 올라가있다.
+        * member1/2/3/4가 전부 영속성 컨텍스트에 있는데
+        * 벌크는 영속성을 무시하고 바로 나가서
+        * 영속성과 DB상태가 달라져버리는 대참사가 일어난다.
+        * 만약 벌크연산은 영속성을 무시하기 때문에
+        * 두 데이터의 상태는 다르다.*/
+        List<Member> result = queryFactory
+                .selectFrom(member)
+                .fetch();
+        /*이렇게 되면 DB에서 가져오면
+        * SQL이 실행되어 DB에서는 비회원 정보를 가져오지만
+        * 이걸 영속성에 넣어줘야 하는데 이때 서로 값이 달라져있다.
+        * 각 PK마다 다르다.
+        * 그래서 JPA는 영속성에 있으면 DB에서 가져온걸 버려서
+        * 영속성 상태가 1순위가 된다.
+        * 그래서 이걸 다시 영속성에 엎지않고 유지가 되서*/
+        for (Member member1:result){
+            System.out.println("member1 = " + member1);
+        }
+        /*홀리쉿
+        * 비회원 변경이 아닌 member1/2/3/4로 나온다.
+        * 왜 와이? 위와 같은 이유이다.
+        * 이 문제는 어떻게 해결해야될까용??
+        * */
+        em.flush();
+        em.clear();
+        //이렇게 벌크연산  후 초기화를 해야된다.
+        List<Member> resultFlush = queryFactory
+                .selectFrom(member)
+                .fetch();
+        for (Member member1:resultFlush){
+            System.out.println("member1 = " + member1);
+        }
+        /*이렇게 하면 짜잔 정상적으로 다시 불러와서 비회원으로
+        * 잘 나온다.
+        * 이렇게 해야된다. 항상 주의
+        * 벌크연산 후 영속성을 초기화하고 사용하는게 좋다.
+        * 그래서 잘못쓰면 대참사*/
+    }
+    /*기존 숫자를 더하거나 곱하거나*/
+    @Test
+    public void blukAdd(){
+        long count = queryFactory
+                .update(member)
+                .set(member.age, member.age.add(1))
+                .execute();
+
+        /*마이너스가 없어서 -1로 넣어주면 된다.
+        * 이야 이거 좋네
+        * 돈 같은 거 단체로 차감하거나 포인트 차감 같은거 배치로 하기 좋겠다.
+        * 곱하기는 multiply()함수 츄라이츄라이*/
+
+    }
+
+    @Test
+    public void bulkDelete(){
+        long count = queryFactory
+                .delete(member)
+                .where(member.age.gt(18))
+                .execute();
+
+    }
+    /*18세 이상 회원은 전부 삭제??
+    * 헉
+    * 밤 22시 피시방 퇴출이네
+    * */
 
 
 }
