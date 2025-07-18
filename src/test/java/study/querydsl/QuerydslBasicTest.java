@@ -5,7 +5,9 @@ import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.QueryResults;
 import com.querydsl.core.Tuple;
 import com.querydsl.core.types.ExpressionUtils;
+import com.querydsl.core.types.Predicate;
 import com.querydsl.core.types.Projections;
+import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.core.types.dsl.CaseBuilder;
 import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.jpa.JPAExpressions;
@@ -27,6 +29,7 @@ import study.querydsl.entity.QMember;
 import study.querydsl.entity.QTeam;
 import study.querydsl.entity.Team;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static com.querydsl.jpa.JPAExpressions.*;
@@ -1006,6 +1009,85 @@ tuple = [Member{id=6, username='TeamB', age=0}, Team(id=2)]
                 .fetch();
     }
     //이와 같이 서치맴버 함수를 통해 사용자 유무에 따라 쿼리를 생성하도록 할 수 있다.
+
+    //동적 쿼리 - where 다중 파라미터 사용
+    /*깔끔한 코드를 위한 where 다중 파라미터*/
+    @Test
+    public void dynamicQuery_WhereParam(){
+        String usernameParam = "member1";
+        Integer ageParam = 10;
+        List<Member> result = searchMember2(usernameParam,ageParam);
+        assertThat(result.size()).isEqualTo(1);
+    }
+    private List<Member> searchMember2(String usernameCond,Integer ageCond){
+        return queryFactory
+                .selectFrom(member)
+//                .where(usernameEq(usernameCond),ageEq(ageCond))
+                .where(allEq(usernameCond,ageCond))
+                .fetch();
+    }
+
+    private Predicate usernameEq(String usernameCond) {
+//        if(usernameCond == null){
+//            return null;
+//        }else {
+//            return member.username.eq(usernameCond);
+//        }
+        //간단하면 이렇게 삼항연산자를 사용해도 된다.
+        return usernameCond == null ? null : member.username.eq(usernameCond);
+
+
+    }//이렇게 where에 null이 되면 무시가 된다.
+    //조건을 나열하면 기본적으로 and조건인데 null인 경우 무시가 되기 때문에
+    //이렇게 동적 쿼리가 만들어지는 것이다.
+
+    private Predicate ageEq(Integer ageCond) {
+        return ageCond !=null ? member.age.eq(ageCond) : null;
+    }
+    //이렇게 하면 함수명으로 바로 기능이 정리가 되기 때문에 유지보수나
+    //다양한 사람들이 바로 볼 수 있지만
+    //빌더방식은 상당히 지저분한 방식이 된다.
+
+    private BooleanExpression usernameEqAll(String usernameCond) {
+        return usernameCond == null ? null : member.username.eq(usernameCond);
+    }
+
+    private BooleanExpression ageEqAll(Integer ageCond) {
+        return ageCond !=null ? member.age.eq(ageCond) : null;
+    }
+    //BooleanExpression로 바꿔도 인터페이스에서 받아준다.
+    private BooleanExpression allEq(String usernameCond, Integer ageCond){
+        return usernameEqAll(usernameCond).and(ageEqAll(ageCond));
+    }
+    /*
+    * 이렇게 하면
+    * .where(allEq(usernameCond,ageCond))
+    * 이 조건에서 합성이 가능해진다.
+    * 이때 allEq일 경우에는 null처리를 별도로 해줘야하지만
+    * 이렇게 조립을 할 수 있게 설계할 수 있다.
+    * */
+
+    /*
+    * 예시
+    * 광고 상태 isValid,
+    * 광고 날짜 IN : isServiable
+    * 이러한 조건들을 조립을 하게 될 수 있다.
+//    * */
+//    private BooleanExpression isServiable(Boolean isValid, LocalDateTime datetime){
+//        return isValid(isValid).and(DateBetweenIn(datetime));
+//    }
+    //이렇게 만들어서 조건으로 재활용이 가능하다.
+    //이렇게 다양한 조건들을 만들어서 재활용이 가능하여 유지보수가 쉬워진다.
+    //실무에서는 이렇게 뺄 수 있는게 얻을 수 있는 장점이 너무 많다.
+
+    /*정리
+    * where조건에 null은 무시가 된다.
+    * 메서드를 다른 쿼리에서도 재활용 가능하다.
+    * 쿼리 자체의 가독성이 높아진다.
+    * 또한 다양한 조건을 통해 조합이 가능하다.
+    * 단, null 체크는 주의해서 처리해야된다.*/
+
+
 
 
     /*수정 삭제 배치 쿼리
