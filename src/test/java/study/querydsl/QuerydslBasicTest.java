@@ -1179,6 +1179,54 @@ tuple = [Member{id=6, username='TeamB', age=0}, Team(id=2)]
     * 밤 22시 피시방 퇴출이네
     * */
 
+    /*
+    * SQL funtion 호출하기
+    * SQL funtion은 JPA와 같이
+    * Dialect에 등록된 내용만 호출할 수 있다.
+    * membr->M으로 변경하는 리플레이스 함수*/
+    @Test
+    public void sqlFuntion(){
+        List<String> result = queryFactory
+                .select(
+                        Expressions.stringTemplate(
+                                "function('replace',{0},{1},{2})",
+                                member.username,
+                                "member",
+                                "M")
+                ).from(member)
+                .fetch();
+
+        for(String s:result){
+            System.out.println("s = " + s);
+        }
+    }
+    /*별도로 함수를 만드려면
+    * H2Dialect를 상속받는 객체를 만들어서
+    * 설정에 넣을 때 다이렉트 넣는 문법으로 등록해서
+    *  사용해야된다.
+    * 다이렉트를 jpa에 직접 등록해서 사용하면 된다.*/
+
+    @Test
+    public void sqlFunction2(){
+        List<String> result = queryFactory
+                .select(member.username)
+                .from(member)
+//                .where(member.username
+//                        .eq(Expressions
+//                                .stringTemplate("function('lower',{0})",
+//                                        member.username)))
+                .where(member.username.eq(member.username.lower()))
+                /*이렇게 안시표준에 있는 함수들은 대부분 제공한다.*/
+                .fetch();
+
+        for (String s:result){
+            System.out.println("s = " + s);
+        }
+    }
+    /*
+    * sql함수로 문법이 jpql로 잘 나가는 걸 볼 수 있다.
+    * 이런 일반화된 기술들은 모두 쿼리dsl에 등록되어있다.*/
+
 
 }
 
