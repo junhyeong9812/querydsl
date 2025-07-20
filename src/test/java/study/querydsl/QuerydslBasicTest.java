@@ -1227,6 +1227,11 @@ tuple = [Member{id=6, username='TeamB', age=0}, Team(id=2)]
     * sql함수로 문법이 jpql로 잘 나가는 걸 볼 수 있다.
     * 이런 일반화된 기술들은 모두 쿼리dsl에 등록되어있다.*/
 
+    /**
+     * 순수 JPA와 QueryDsl
+     * 1 순수 JPA 리포지토리와 QueryDsl
+     **/
+
 
 }
 
