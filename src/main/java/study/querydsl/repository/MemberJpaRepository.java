@@ -1,15 +1,23 @@
 package study.querydsl.repository;
 
+import com.querydsl.core.BooleanBuilder;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import jakarta.persistence.EntityManager;
 import org.springframework.stereotype.Repository;
+import org.springframework.util.StringUtils;
+import study.querydsl.dto.MemberSearchCondition;
+import study.querydsl.dto.MemberTeamDto;
+import study.querydsl.dto.QMemberDto;
+import study.querydsl.dto.QMemberTeamDto;
 import study.querydsl.entity.Member;
 import study.querydsl.entity.QMember;
 
 import java.util.List;
 import java.util.Optional;
 
+import static org.springframework.util.StringUtils.hasText;
 import static study.querydsl.entity.QMember.*;
+import static study.querydsl.entity.QTeam.team;
 
 /* 기존의 DAO와 비슷*/
 @Repository
@@ -28,7 +36,9 @@ public class MemberJpaRepository {
     * 그래서 스프링에서는 em이 영속성 컨텍스트가 아닌 프록시로
     * 가짜를 반환하고
     * 이걸 트랜젝션 단위로 다른 곳 바인딩되도록 라우팅만 해준다.
-    * 결론적으로 문제 없다.!! */
+    * 결론적으로 문제 없다.!!
+    * ->해당 내용은 트랜잭션 범위의 영속성 컨텍스트에 대해서 알면 좋다.
+    * 결국 스프링단에서 하는 메세지큐같은 역할같은데 확인해보자.*/
 
     public MemberJpaRepository(EntityManager em,JPAQueryFactory queryFactory) {
         this.em = em;
@@ -93,6 +103,40 @@ public class MemberJpaRepository {
         return queryFactory
                 .selectFrom(member)
                 .where(member.username.eq(username))
+                .fetch();
+    }
+
+    /*검색 조건 생성*/
+    public List<MemberTeamDto> searchByBuilder(MemberSearchCondition condition){
+        /*빌더를 통한 동적 쿼리 생성*/
+        BooleanBuilder builder = new BooleanBuilder();
+        //이건
+        if(hasText(condition.getUsername())){
+            builder.and(member.username.eq(condition.getUsername()));
+        }
+        if(hasText(condition.getTeamname())){
+            builder.and(team.name.eq(condition.getTeamname()));
+        }
+        //hasText -> null !=  "" !=
+        if(condition.getAgeGoe() != null){
+            builder.and(member.age.goe((condition.getAgeGoe())));
+        }
+        if(condition.getAgeLoe() != null){
+            builder.and(member.age.loe((condition.getAgeLoe())));
+        }
+        /*이렇게 동적쿼리와 성능최적화까지 가능하다.*/
+
+        return queryFactory
+                .select(new QMemberTeamDto(
+                        member.id.as("memberId"),
+                        member.username,
+                        member.age,
+                        team.id.as("teamId"),
+                        team.name.as("teamName")
+                ))
+                .from(member)
+                .leftJoin(member.team, team)
+                .where(builder)
                 .fetch();
     }
 }

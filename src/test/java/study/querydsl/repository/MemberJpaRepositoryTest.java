@@ -5,7 +5,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
+import study.querydsl.dto.MemberSearchCondition;
+import study.querydsl.dto.MemberTeamDto;
 import study.querydsl.entity.Member;
+import study.querydsl.entity.Team;
 
 import java.util.List;
 
@@ -58,6 +61,43 @@ class MemberJpaRepositoryTest {
     * 그리고 set파라미터도 조건이 파라미터 바인딩을 해주기 때문에
     * 신경 쓸 일이 없다.
     * */
+
+    /*동적 쿼리 Builder쿼리
+    * */
+    @Test
+    public void searchTest(){
+        Team teamA=new Team("teamA");
+        Team teamB=new Team("teamB");
+        em.persist(teamA);
+        em.persist(teamB);
+
+        Member member1=new Member("member1",10,teamA);
+        Member member2=new Member("member2",20,teamA);
+        Member member3=new Member("member3",30,teamB);
+        Member member4=new Member("member4",40,teamB);
+        em.persist(member1);
+        em.persist(member2);
+        em.persist(member3);
+        em.persist(member4);
+
+        MemberSearchCondition condition = new MemberSearchCondition();
+//        condition.setAgeGoe(35);
+//        condition.setAgeLoe(40);
+        condition.setTeamname("teamB");
+
+        List<MemberTeamDto> result = memberJpaRepository.searchByBuilder(condition);
+        assertThat(result).extracting("username").containsExactly("member3","member4");
+    }
+    /*jpql을 보면 팀 네임과 에이지 조건도 잘 들어오는걸 볼 수 있다.
+    * 그리고 결과를 가져오는 것은 우리가 원하는 결과를 잘 가져온 것을
+    * 볼 수 있다.
+    * 이렇게 Goe와 Loe를 주석하면
+    * 실무에서 만약 조건이 다 빠지게 되면
+    * where절에 빌더가 조건이 없을 때 쿼리가 데이털를 전부 가져오도록 된다.
+    * 개발할때는 문제가 없지만 몇천개의 데이터가 있으면 잘못하면
+    * 전부 가져오게 되어
+    * 기본조건 및 리미트 조건을 걸어놔야한다.
+    * 그래서 페이징 쿼리가 필수다.*/
 
 
 }
