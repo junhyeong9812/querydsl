@@ -1,6 +1,8 @@
 package study.querydsl.repository;
 
 import com.querydsl.core.BooleanBuilder;
+import com.querydsl.core.types.Predicate;
+import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import jakarta.persistence.EntityManager;
 import org.springframework.stereotype.Repository;
@@ -16,6 +18,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.springframework.util.StringUtils.hasText;
+import static org.springframework.util.StringUtils.isEmpty;
 import static study.querydsl.entity.QMember.*;
 import static study.querydsl.entity.QTeam.team;
 
@@ -139,4 +142,74 @@ public class MemberJpaRepository {
                 .where(builder)
                 .fetch();
     }
+
+    /*where절 파라미터 방식*/
+    public List<MemberTeamDto> search(MemberSearchCondition condition){
+        return queryFactory
+                .select(new QMemberTeamDto(
+                        member.id.as("memberId"),
+                        member.username,
+                        member.age,
+                        team.id.as("teamId"),
+                        team.name.as("teamName")
+                ))
+                .from(member)
+                .leftJoin(member.team,team)
+                .where(
+                        usernameEq(condition.getUsername()),
+                        teamNameEq(condition.getTeamname()),
+                        ageGoe(condition.getAgeGoe()),
+                        ageLoe(condition.getAgeLoe())
+                )
+                /*쿼리처럼 깔끔하게 데이터가 나오는 걸 볼 수 있다.
+                * 이렇게 BooleanExpression타입으로 만들어놓으면
+                * 아래 함수들을 조건절에 재사용이 가능하다.*/
+                .fetch();
+    }
+    /*where절 조건 방식
+    * predicate보단
+    * BooleanExpression로 하는게
+    * 조합하기 좋다.*/
+
+    /*이와 같이 조건을 재사용할 수 있으며
+    * null만 조심하면 이러한 조건들을 조립하여 활용이 가능하다.*/
+    public List<Member> searchMember(MemberSearchCondition condition){
+        return queryFactory
+                .selectFrom(member)
+                .leftJoin(member.team,team)
+                .where(
+                        usernameEq(condition.getUsername()),
+                        teamNameEq(condition.getTeamname()),
+                        ageBetween(condition.getAgeLoe(), condition.getAgeGoe())
+                )
+
+                .fetch();
+    }
+    /*이때 널 체크만 조심하면 조립하여 만들 수 있다.
+    * 이렇게 만드는게 유지보수나 확장성에 상당히 좋다.
+    * isValid로 널값 체크만 해주면 된다.*/
+    private BooleanExpression ageBetween(int ageLoe,int ageGoe){
+        return ageGoe(ageLoe).and(ageGoe(ageGoe));
+    }
+
+    private BooleanExpression usernameEq(String username) {
+        return hasText(username) ? member.username.eq(username) : null ;
+    }
+
+    private BooleanExpression teamNameEq(String teamName) {
+        return hasText(teamName) ? team.name.eq(teamName) : null;
+    }
+
+    private BooleanExpression ageGoe(Integer ageGoe) {
+        return ageGoe != null ? member.age.goe(ageGoe) : null;
+    }
+
+    private BooleanExpression ageLoe(Integer ageLoe) {
+        return ageLoe != null ? member.age.loe(ageLoe) : null;
+    }
+
+
+
+
+
 }
