@@ -6,7 +6,7 @@ import study.querydsl.entity.Member;
 
 import java.util.List;
 
-public interface MemberRepository extends JpaRepository<Member,Long> {
+public interface MemberRepository extends JpaRepository<Member,Long>,MemberRepositoryCustom {
     List<Member> findByUsername(String username);
     //함수 이름으로 매칭을 시켜서
     //select m from Member m where m.username= ?
