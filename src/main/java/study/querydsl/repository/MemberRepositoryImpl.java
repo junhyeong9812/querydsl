@@ -2,11 +2,13 @@ package study.querydsl.repository;
 
 import com.querydsl.core.QueryResults;
 import com.querydsl.core.types.dsl.BooleanExpression;
+import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import jakarta.persistence.EntityManager;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.support.PageableExecutionUtils;
 import study.querydsl.dto.MemberSearchCondition;
 import study.querydsl.dto.MemberTeamDto;
 import study.querydsl.dto.QMemberTeamDto;
@@ -126,6 +128,45 @@ public class MemberRepositoryImpl implements MemberRepositoryCustom{
         return new PageImpl<>(content,pageable,total);
     }
 
+    @Override
+    public Page<MemberTeamDto> searchPageComplexPage(MemberSearchCondition condition, Pageable pageable) {
+        List<MemberTeamDto> content = queryFactory
+                .select(new QMemberTeamDto(
+                        member.id.as("memberId"),
+                        member.username,
+                        member.age,
+                        team.id.as("teamId"),
+                        team.name.as("teamName")
+                ))
+                .from(member)
+                .leftJoin(member.team, team)
+                .where(
+                        usernameEq(condition.getUsername()),
+                        teamNameEq(condition.getTeamname()),
+                        ageGoe(condition.getAgeGoe()),
+                        ageLoe(condition.getAgeLoe())
+                )
+                .offset(pageable.getOffset())
+                .limit(pageable.getPageSize())
+                .fetch();
+
+        JPAQuery<Member> countQuery = queryFactory
+                .select(member)
+                .from(member)
+                .leftJoin(member.team, team)
+                .where(
+                        usernameEq(condition.getUsername()),
+                        teamNameEq(condition.getTeamname()),
+                        ageGoe(condition.getAgeGoe()),
+                        ageLoe(condition.getAgeLoe())
+                );
+
+        /* 이렇게 하면 getPage에서 페이저블과 컨텐츠 사이즈로 판단하여
+        * 카운트 쿼리를 호출 안하도록 구현되어있다.*/
+        return PageableExecutionUtils.getPage(content,pageable,countQuery::fetchCount);
+
+    }
+
     private List<MemberTeamDto> getMemberTeamDtos(MemberSearchCondition condition, Pageable pageable) {
         List<MemberTeamDto> content = queryFactory
                 .select(new QMemberTeamDto(
@@ -180,5 +221,9 @@ public class MemberRepositoryImpl implements MemberRepositoryCustom{
      * 또한 이렇게 쿼리 2개를 메서드 형태로 분리 가능하다.
      * */
 
-
+    /*스프링 데이터 페이징 활용(count Query최적화)
+    * count쿼리가 생략 가능한 경우
+    * 페이지 시작하면서 컨텐츠 사이즈가 페이지 사이즈보다 작을 때
+    * 마지막 페이지일 때 offset+컨텐츠 사이즈를 더해서 전체 사이즈 구함
+    * 이걸 SpringData에서 제공해준다.*/
 }
