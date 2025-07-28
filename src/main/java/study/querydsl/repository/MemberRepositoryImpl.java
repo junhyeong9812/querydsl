@@ -226,4 +226,6 @@ public class MemberRepositoryImpl implements MemberRepositoryCustom{
     * 페이지 시작하면서 컨텐츠 사이즈가 페이지 사이즈보다 작을 때
     * 마지막 페이지일 때 offset+컨텐츠 사이즈를 더해서 전체 사이즈 구함
     * 이걸 SpringData에서 제공해준다.*/
+
+
 }
