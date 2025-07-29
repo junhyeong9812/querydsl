@@ -58,4 +58,6 @@ public class MemberController {
     * 그래서 파라미터로 받아서 그때그때 오더 조건으로 넣는걸 권장한다.
     * */
 
+
+
 }
