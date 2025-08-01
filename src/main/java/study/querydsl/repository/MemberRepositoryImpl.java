@@ -308,5 +308,13 @@ public class MemberRepositoryImpl extends QuerydslRepositorySupport implements M
     * 마지막 페이지일 때 offset+컨텐츠 사이즈를 더해서 전체 사이즈 구함
     * 이걸 SpringData에서 제공해준다.*/
 
+    /*QueryDsl 지원 클래스 직접 생성
+    * 기능 제공을 넘어 더 좋게 커스터마이징을 할 수 있다.
+    * 직접 나만의 지원클래스를 생성할 수 있겠구나.
+    * 스프링 데이터가 제공하는 페이징을 편리하게 변환
+    * 페이징과 카운트 쿼리 분리 기능
+    * 스프링 데이터 Sort 지원
+    *
+    * */
 
 }
